@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ClerkProvider } from "@clerk/nextjs";
 import { authMode } from "@/lib/config";
 import { Toaster } from "./components/Toaster";
+import { dark } from "@clerk/ui/themes";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -28,7 +29,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         {/* Clerk Core 3 requires ClerkProvider inside <body>, not around <html>. */}
         {authMode === "clerk" ? (
-          <ClerkProvider>
+          <ClerkProvider appearance={{ theme: dark }}>
             {children}
             <Footer />
             <Toaster />
