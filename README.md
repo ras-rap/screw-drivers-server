@@ -334,7 +334,9 @@ two running servers is not safe.
      first, then run the installer.
 
    The installer keeps the game files, installs BepInEx + the admin plugin (embedded in
-   the egg as base64, so it needs no extra hosting) and pre-builds the wine prefix.
+   the egg as base64, so it needs no extra hosting) and pre-builds the wine prefix. It
+   writes `start.sh` and the mod *before* downloading, adopts game files wherever steamcmd
+   left them, and can simply be re-run after a failed install.
 4. Allocate **two** ports. The **first (primary) allocation is the game port** — wings
    passes it to the container as `SERVER_PORT`, which `start.sh` uses, so there is no
    "server port" variable to fill in (Pterodactyl reserves that name and an egg defining

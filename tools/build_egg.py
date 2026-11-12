@@ -68,10 +68,10 @@ def install_script() -> str:
 
     payload = base64.encodebytes(PLUGIN.read_bytes()).decode("ascii")
     plugin_writer = (
-        "base64 -d > \"$SERVER_DIR/BepInEx/plugins/ScrewDriversAdmin.dll\" <<'SD_PLUGIN_EOF'\n"
+        "base64 -d > \"$SERVER_DIR/BepInEx/plugins/ModTheIsland.dll\" <<'SD_PLUGIN_EOF'\n"
         f"{payload}"
         "SD_PLUGIN_EOF\n"
-        "chmod 0644 \"$SERVER_DIR/BepInEx/plugins/ScrewDriversAdmin.dll\"\n"
+        "chmod 0644 \"$SERVER_DIR/BepInEx/plugins/ModTheIsland.dll\"\n"
     )
     script = INSTALL_SH.replace(MARKER, writer)
     return script.replace(PLUGIN_MARKER, plugin_writer)

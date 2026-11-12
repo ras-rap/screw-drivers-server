@@ -197,6 +197,12 @@ sudo ufw delete allow 38080/tcp          # if you opened it earlier
 Pterodactyl: import `pterodactyl/egg-screw-drivers-server.json`, allocate the UDP game
 port **and** the TCP admin port, then add `http://<node-ip>:<admin port>` in the panel.
 
+If an install aborts halfway (or steamcmd parks the depot under
+`$HOME/Steam/steamapps/common/Screw Drivers`), just run the installer again: it now finds
+the `Dedicated Server` folder wherever it landed, copies it to the volume root and removes
+steamcmd's leftover library. `start.sh` and the mod are written before any download, so a
+half-finished install still boots and logs what is missing.
+
 Two details that bite:
 
 - the **primary allocation is the game port**: wings injects it as `SERVER_PORT`, so the egg
