@@ -1,0 +1,51 @@
+# Two independent servers on one node. Same image, separate volumes, ports and
+# tokens; nothing is shared, so one server can be restarted, updated or stopped
+# without touching the other.
+#
+#   docker compose -f docker-compose.multi.yml up -d
+#
+# Disk: each instance keeps its own copy of the game files (2.7 GB) plus its own
+# wine prefix (1.4 GB). To avoid duplicating the big, read-only asset files, seed
+# the second volume with hardlinks first (same disk blocks, no copies):
+#
+#   cp -al data1/. data2/            # requires both dirs on the same filesystem
+#   rm -rf data2/.wine data2/saveables.dat*data2/host_password.txt data2/.sd-stop
+#
+services:
+  sd-one:
+    build: .
+    image: screw-drivers-server:latest
+    container_name: sd-one
+    restart: on-failure
+    stop_grace_period: 30s
+    stdin_open: true
+    environment:
+      SERVER_NAME: "Screw Drivers #1"
+      SERVER_PORT: "38000"
+      MAX_PLAYERS: "8"
+      SD_ADMIN_PORT: "38080"
+      SD_ADMIN_TOKEN: "${SD_ONE_TOKEN:-}"
+    ports:
+      - "38000:38000/udp"
+      - "38080:38080/tcp"
+    volumes:
+      - ./data1:/home/container
+
+  sd-two:
+    build: .
+    image: screw-drivers-server:latest
+    container_name: sd-two
+    restart: on-failure
+    stop_grace_period: 30s
+    stdin_open: true
+    environment:
+      SERVER_NAME: "Screw Drivers #2"
+      SERVER_PORT: "38010"
+      MAX_PLAYERS: "8"
+      SD_ADMIN_PORT: "38081"
+      SD_ADMIN_TOKEN: "${SD_TWO_TOKEN:-}"
+    ports:
+      - "38010:38010/udp"
+      - "38081:38081/tcp"
+    volumes:
+      - ./data2:/home/container

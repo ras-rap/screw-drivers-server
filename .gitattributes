@@ -1,0 +1,8 @@
+# This repo drives Linux containers and a Pterodactyl egg: LF everywhere.
+# (A CRLF checkout of start.sh/setup.sh breaks the shebang inside the containers.)
+* text=auto eol=lf
+
+*.dll binary
+*.png binary
+*.jpg binary
+*.webp binary

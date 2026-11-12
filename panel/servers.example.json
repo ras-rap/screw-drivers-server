@@ -1,0 +1,17 @@
+[
+  {
+    "id": "eu-1",
+    "name": "Screw Drivers EU #1",
+    "url": "http://10.0.0.11:38080",
+    "token": "paste-the-token-printed-at-server-boot",
+    "group": "EU"
+  },
+  {
+    "id": "us-1",
+    "name": "Screw Drivers US #1",
+    "url": "http://10.0.0.12:38080",
+    "token": "another-server-token",
+    "group": "US",
+    "allowed": ["you@example.com", "user_2abcDEF..."]
+  }
+]

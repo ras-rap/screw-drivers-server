@@ -1,0 +1,104 @@
+# nginx site for the Screw Drivers panel.
+#
+#   cp nginx/panel.conf.example /etc/nginx/sites-available/panel.example.com
+#   # replace {{HOST}} / {{PORT}} (./setup.sh --host panel.example.com does it for you)
+#   ln -s /etc/nginx/sites-available/panel.example.com /etc/nginx/sites-enabled/
+#   nginx -t && systemctl reload nginx
+#
+# Assumes the panel container publishes 127.0.0.1:{{PORT}} (docker-compose.yml default
+# 3000) and that Cloudflare terminates public TLS with an Origin Certificate, as
+# described in setup.md.
+
+# Cloudflare connects from its own ranges; honour the visitor IP it forwards.
+# The list is maintained at https://www.cloudflare.com/ips/ - refresh it now and then.
+set_real_ip_from 173.245.48.0/20;
+set_real_ip_from 103.21.244.0/22;
+set_real_ip_from 103.22.200.0/22;
+set_real_ip_from 103.31.4.0/22;
+set_real_ip_from 141.101.64.0/18;
+set_real_ip_from 108.162.192.0/18;
+set_real_ip_from 190.93.240.0/20;
+set_real_ip_from 188.114.96.0/20;
+set_real_ip_from 197.234.240.0/22;
+set_real_ip_from 198.41.128.0/17;
+set_real_ip_from 162.158.0.0/15;
+set_real_ip_from 104.16.0.0/13;
+set_real_ip_from 104.24.0.0/14;
+set_real_ip_from 172.64.0.0/13;
+set_real_ip_from 131.0.72.0/22;
+set_real_ip_from 2400:cb00::/32;
+set_real_ip_from 2606:4700::/32;
+set_real_ip_from 2803:f800::/32;
+set_real_ip_from 2405:b500::/32;
+set_real_ip_from 2405:8100::/32;
+set_real_ip_from 2a06:98c0::/29;
+set_real_ip_from 2c0f:f248::/32;
+real_ip_header CF-Connecting-IP;
+
+upstream screw_drivers_panel {
+	server 127.0.0.1:{{PORT}};
+	keepalive 16;
+}
+
+# Public entry point. With Cloudflare in front this only ever sees Cloudflare
+# traffic; the Cloudflare Origin Certificate lives here (or certbot, if you skip CF).
+server {
+	listen 80;
+	listen [::]:80;
+	server_name {{HOST}};
+
+	# Cloudflare "Always Use HTTPS" handles the redirect at the edge; keep it here too
+	# in case someone hits the origin directly.
+	return 301 https://$host$request_uri;
+}
+
+server {
+	listen 443 ssl;
+	listen [::]:443 ssl;
+	http2 on;
+	server_name {{HOST}};
+
+	# Cloudflare Origin Certificate (15 years, free) - or certbot-managed files.
+	ssl_certificate /etc/ssl/cloudflare/{{HOST}}.pem;
+	ssl_certificate_key /etc/ssl/cloudflare/{{HOST}}.key;
+	ssl_protocols TLSv1.2 TLSv1.3;
+	ssl_session_cache shared:SSL:10m;
+	ssl_session_timeout 1d;
+	# Only claim HSTS once you are happy with the HTTPS setup.
+	# add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+	client_max_body_size 1m;
+	server_tokens off;
+
+	# The panel is polling JSON every few seconds; nothing here should be cached by
+	# Cloudflare or the browser. Also set a Cloudflare cache rule for /api/* = Bypass.
+	location /api/ {
+		proxy_pass http://screw_drivers_panel;
+		proxy_http_version 1.1;
+		proxy_set_header Connection "";
+		proxy_set_header Host $host;
+		proxy_set_header X-Real-IP $remote_addr;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_set_header X-Forwarded-Proto $scheme;
+		proxy_read_timeout 30s;
+		add_header Cache-Control "no-store" always;
+	}
+
+	# Clerk's sign-in widget and Next.js assets/chunks.
+	location / {
+		proxy_pass http://screw_drivers_panel;
+		proxy_http_version 1.1;
+		proxy_set_header Connection "";
+		proxy_set_header Host $host;
+		proxy_set_header X-Real-IP $remote_addr;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_set_header X-Forwarded-Proto $scheme;
+		proxy_read_timeout 30s;
+	}
+
+	location = /favicon.ico {
+		access_log off;
+		log_not_found off;
+		return 204;
+	}
+}

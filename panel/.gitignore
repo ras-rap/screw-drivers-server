@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+*.log
+.env.local
+.env
+servers.json
+*.tsbuildinfo
+nginx/*.conf
+!nginx/*.example

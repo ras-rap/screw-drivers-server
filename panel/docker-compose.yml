@@ -1,0 +1,24 @@
+# Panel container. nginx on the host is the public entry point (it already serves
+# other services), so the panel is published on loopback only:
+#
+#   ./setup.sh --host panel.example.com      # builds, starts, writes nginx/<host>.conf
+#
+# The Cloudflare + nginx steps are in ../setup.md.
+services:
+  panel:
+    build: .
+    restart: unless-stopped
+    env_file:
+      # created by ./setup.sh; optional so `docker compose config` works before that
+      - path: .env
+        required: false
+    environment:
+      PANEL_DATA_FILE: /app/data/panel.json
+    volumes:
+      - panel-data:/app/data
+    ports:
+      # loopback only: nginx proxies to 127.0.0.1:<port>
+      - "127.0.0.1:${PANEL_PORT:-3000}:3000"
+
+volumes:
+  panel-data:

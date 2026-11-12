@@ -1,0 +1,25 @@
+# local environment / secrets
+.env
+.env.local
+panel/.env
+panel/.env.local
+panel/data/
+data/
+
+# generated per-host nginx configs (the *.example template is committed)
+panel/nginx/*.conf
+!panel/nginx/*.example
+
+# dependencies and build output
+panel/node_modules/
+panel/.next/
+panel/out/
+*.tsbuildinfo
+
+# scratch / local test artefacts
+.rt/
+.build/
+.buildref/
+*.log
+.DS_Store
+Thumbs.db

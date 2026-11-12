@@ -1,0 +1,36 @@
+services:
+  screw-drivers:
+    build: .
+    image: screw-drivers-server:latest
+    container_name: screw-drivers
+    # /stop exits cleanly, so a deliberate stop stays stopped; crashes restart.
+    restart: on-failure
+    stop_grace_period: 30s
+    stdin_open: true
+    tty: false
+    environment:
+      SERVER_NAME: "${SERVER_NAME:-Screw Drivers Server}"
+      SERVER_PASSWORD: "${SERVER_PASSWORD:-}"
+      MAX_PLAYERS: "${MAX_PLAYERS:-8}"
+      SERVER_PORT: "${SERVER_PORT:-38000}"
+      # 0 = nobody is host up-front, claim it in-game with host_password.txt
+      HOST_STEAM_ID: "${HOST_STEAM_ID:-0}"
+      ALLOW_FIRST_PLAYER_HOST: "${ALLOW_FIRST_PLAYER_HOST:-0}"
+      NOBLE_CONNECT: "${NOBLE_CONNECT:-0}"
+      EXTRA_ARGS: "${EXTRA_ARGS:-}"
+      AUTO_UPDATE: "${AUTO_UPDATE:-0}"
+      SD_ADMIN_ENABLED: "${ADMIN_ENABLED:-1}"
+      SD_ADMIN_BIND: "${ADMIN_BIND:-0.0.0.0}"
+      SD_ADMIN_PORT: "${ADMIN_PORT:-38080}"
+      SD_ADMIN_TOKEN: "${ADMIN_TOKEN:-}"
+      STEAM_USERNAME: "${STEAM_USERNAME:-}"
+      STEAM_PASSWORD: "${STEAM_PASSWORD:-}"
+      STEAM_GUARD_CODE: "${STEAM_GUARD_CODE:-}"
+      RESTART_ON_EXIT: "${RESTART_ON_EXIT:-1}"
+      STDIN_COMMANDS: "${STDIN_COMMANDS:-1}"
+    ports:
+      - "${SERVER_PORT:-38000}:${SERVER_PORT:-38000}/udp"
+      - "${ADMIN_PORT:-38080}:${ADMIN_PORT:-38080}/tcp"
+    volumes:
+      # Drop the contents of the game's "Dedicated Server" folder in ./data
+      - ./data:/home/container
