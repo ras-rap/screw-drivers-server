@@ -155,6 +155,8 @@ are 400 (bad input / no such player), 409 (server not ready, or no host assigned
 | `POST /host` | `{"playerId"\|"steamId"\|"name"}` | make a connected player host |
 | `POST /settings` | `{"name","password","maxPlayers"}` | rename / join password / slots |
 | `POST /hostsettings` | `{"damagePercentage":50,"maxAcceleration":300,"repairingAllowed":false,"downforceAllowed":true,"mapVoteAtEnd":true,"playMode":1,"amountOfRounds":5}` | the race rules the host sets |
+| `GET /config` | – | every ModTheIsland setting (Discord hook, rate limits, guards) with type, description and restart flag |
+| `POST /config` | `{"section":"Discord","key":"WebhookUrl","value":"https://…"}` | changes one setting, writes the .cfg and reloads that guard live (only `AdminApi` needs a restart) |
 | `POST /kick` | `{"playerId"\|"steamId"\|"name","reason"}` | disconnect one player |
 | `POST /kickall` | `{"keepAdmins":true}` | disconnect everyone |
 | `POST /stop` / `POST /restart` | `{"delaySeconds":1}` | quit + stay down / quit + relaunch |

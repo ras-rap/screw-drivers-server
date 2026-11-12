@@ -1,18 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { panelFetch, type PanelBan, type PanelChatLine, type PanelPlayer, type PanelStatus } from "@/lib/client";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  panelFetch,
+  type PanelBan,
+  type PanelChatLine,
+  type PanelIsland,
+  type PanelPlayer,
+  type PanelSettingSection,
+  type PanelStatus,
+} from "@/lib/client";
 import { toast } from "./Toaster";
 import { usePolling } from "./usePolling";
 
-type Tab = "players" | "chat" | "server" | "bans" | "console";
+type Tab = "players" | "chat" | "server" | "bans" | "mod" | "console";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "players", label: "Players" },
   { key: "chat", label: "Chat" },
   { key: "server", label: "Server" },
   { key: "bans", label: "Bans" },
+  { key: "mod", label: "Mod settings" },
   { key: "console", label: "Console" },
 ];
 
@@ -128,6 +137,7 @@ export function ServerView({ id, name }: { id: string; name: string }) {
         {tab === "chat" ? <ChatTab id={id} /> : null}
         {tab === "server" ? <ServerTab id={id} status={state} post={post} /> : null}
         {tab === "bans" ? <BansTab id={id} post={post} /> : null}
+        {tab === "mod" ? <ModTab id={id} /> : null}
         {tab === "console" ? <ConsoleTab post={post} status={state} /> : null}
       </main>
     </>
@@ -294,7 +304,7 @@ function ServerTab({
   const [name, setName] = useState(status?.serverName ?? "");
   const [password, setPassword] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(status?.maxPlayers ?? 8);
-  const [islands, setIslands] = useState<{ uniqueId: number; sortOrder: number }[]>([]);
+  const [islands, setIslands] = useState<PanelIsland[]>([]);
   const [currentIsland, setCurrentIsland] = useState<number | null>(null);
   const [island, setIsland] = useState<number | null>(null);
 
@@ -309,9 +319,7 @@ function ServerTab({
     let alive = true;
     void (async () => {
       try {
-        const data = await panelFetch<{ current: number; islands: { uniqueId: number; sortOrder: number }[] }>(
-          `/api/s/${id}/islands`,
-        );
+        const data = await panelFetch<{ current: number; islands: PanelIsland[] }>(`/api/s/${id}/islands`);
         if (!alive) return;
         setIslands(data.islands);
         setCurrentIsland(data.current);
@@ -435,7 +443,7 @@ function ServerTab({
           <select value={island ?? ""} onChange={(event) => setIsland(Number(event.target.value))} style={{ maxWidth: 320 }}>
             {islands.map((entry) => (
               <option key={entry.uniqueId} value={entry.uniqueId}>
-                island {entry.uniqueId} (#{entry.sortOrder})
+                {entry.name ?? `island ${entry.uniqueId}`} (#{entry.sortOrder})
               </option>
             ))}
           </select>
@@ -617,6 +625,176 @@ function ConsoleTab({
           <button type="submit">Run as host</button>
         </form>
       </section>
+    </div>
+  );
+}
+
+/**
+ * ModTheIsland's own settings (Discord webhook, rate limits, guards). Values are read from
+ * the server's /config, one POST per changed field, and the mod reloads the guard right away.
+ */
+function ModTab({ id }: { id: string }) {
+  const [sections, setSections] = useState<PanelSettingSection[]>([]);
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      const data = await panelFetch<{ sections: PanelSettingSection[] }>(`/api/admin/server/${id}/config`);
+      setSections(data.sections);
+      const next: Record<string, string> = {};
+      for (const section of data.sections) {
+        for (const entry of section.entries) {
+          next[`${section.name}:${entry.key}`] = entry.value === null ? "" : String(entry.value);
+        }
+      }
+      setDraft(next);
+      setError(null);
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : String(problem));
+    }
+  }, [id]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  function changed(section: PanelSettingSection): string[] {
+    return section.entries
+      .filter((entry) => !entry.sensitive && draft[`${section.name}:${entry.key}`] !== String(entry.value ?? ""))
+      .map((entry) => entry.key);
+  }
+
+  async function save(section: PanelSettingSection) {
+    setBusy(true);
+    try {
+      for (const key of changed(section)) {
+        const result = await panelFetch<{ applied: string[]; restartRequired: string[]; errors: string[] }>(
+          `/api/admin/server/${id}/config`,
+          { method: "POST", body: { section: section.name, key, value: draft[`${section.name}:${key}`] ?? "" } },
+        );
+        if (result.errors.length > 0) toast(result.errors.join("; "), "err");
+        else toast(`${section.name} · ${key} applied${result.restartRequired.length > 0 ? " (restart required)" : ""}`, "ok");
+      }
+      await load();
+    } catch (problem) {
+      toast(problem instanceof Error ? problem.message : String(problem), "err");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (error !== null) {
+    return (
+      <section className="card down">
+        <h2>Mod settings</h2>
+        <p className="muted">{error}</p>
+      </section>
+    );
+  }
+
+  const needle = filter.trim().toLowerCase();
+  const visible = sections
+    .map((section) => ({
+      section,
+      entries: section.entries.filter(
+        (entry) =>
+          needle.length === 0 ||
+          entry.key.toLowerCase().includes(needle) ||
+          entry.description.toLowerCase().includes(needle) ||
+          section.name.toLowerCase().includes(needle),
+      ),
+    }))
+    .filter((group) => group.entries.length > 0);
+
+  return (
+    <div className="stack">
+      <section className="card">
+        <div className="row">
+          <input
+            placeholder="filter settings (e.g. webhook, rate, autoban)…"
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+          />
+          <span className="muted mono">{visible.reduce((sum, group) => sum + group.entries.length, 0)} settings</span>
+        </div>
+        <div className="sub" style={{ marginTop: 8 }}>
+          values live in ModTheIsland.cfg; saving one reloads the guard immediately unless the section says otherwise
+        </div>
+      </section>
+      {visible.map(({ section, entries }) => {
+        const dirty = changed(section);
+        return (
+          <details className="card" key={section.name} open={needle.length > 0 || dirty.length > 0 || section.restart}>
+            <summary>
+              <h2>
+                {section.name}
+                {section.restart ? <span className="badge"> restart required</span> : null}
+                {dirty.length > 0 ? <span className="badge ok"> {dirty.length} changed</span> : null}
+              </h2>
+            </summary>
+            <div className="form-grid">
+              {entries.map((entry) => {
+                const field = `${section.name}:${entry.key}`;
+                const value = draft[field] ?? "";
+                const set = (next: string) => setDraft({ ...draft, [field]: next });
+                return (
+                  <label key={field}>
+                    <span className="mono">{entry.key}</span>
+                    {entry.sensitive ? (
+                      <span className="muted">set with ADMIN_TOKEN on the server</span>
+                    ) : entry.type === "bool" ? (
+                      <input
+                        type="checkbox"
+                        name={field}
+                        checked={value === "true"}
+                        disabled={busy || section.restart}
+                        onChange={(event) => set(event.target.checked ? "true" : "false")}
+                      />
+                    ) : entry.type === "string" ? (
+                      <input
+                        name={field}
+                        value={value}
+                        disabled={busy || section.restart}
+                        onChange={(event) => set(event.target.value)}
+                      />
+                    ) : (
+                      <input
+                        type="number"
+                        name={field}
+                        value={value}
+                        disabled={busy || section.restart}
+                        onChange={(event) => set(event.target.value)}
+                      />
+                    )}
+                    <span className="muted" style={{ fontSize: 11 }}>
+                      {entry.description}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="row end" style={{ marginTop: 10 }}>
+              <button disabled={busy || section.restart || dirty.length === 0} onClick={() => void save(section)}>
+                Save {section.name}
+              </button>
+            </div>
+          </details>
+        );
+      })}
+      {sections.length === 0 ? (
+        <section className="card">
+          <h2>Mod settings</h2>
+          <p className="muted">reading settings…</p>
+        </section>
+      ) : null}
+      {sections.length > 0 && visible.length === 0 ? (
+        <section className="card">
+          <p className="muted">no setting matches “{filter}”</p>
+        </section>
+      ) : null}
     </div>
   );
 }

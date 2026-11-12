@@ -52,6 +52,8 @@ fi
 
 mkdir -p "$SERVER_DIR/BepInEx/plugins"
 rm -f "$SERVER_DIR/BepInEx/plugins/ScrewDriversAdmin.dll"   # superseded by ModTheIsland
+	# Development-only probe that fakes a player/host; never belongs on a real server.
+	rm -f "$SERVER_DIR/BepInEx/plugins/FakePlayerProbe.dll"
 __WRITE_PLUGIN_DLL__
 
 # ------------------------------------------------------------------- game files

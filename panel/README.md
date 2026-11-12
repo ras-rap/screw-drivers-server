@@ -21,8 +21,11 @@ goes through a per-server allowlisted proxy.
     endpoint) · Kick.
   - *Chat* — live feed and a box to talk as the server.
   - *Server* — name, join password, slots; race rules (damage %, acceleration, play mode,
-    rounds, downforce/repair/map-vote); island switch; ready-up / cancel.
+    rounds, downforce/repair/map-vote); island switch by **name**; ready-up / cancel.
   - *Bans* — all scopes with state/expiry/strikes, add and remove.
+  - *Mod settings* — every ModTheIsland option (Discord webhook, rate limits, guard
+    thresholds) with a filter box; saving one writes the server's `.cfg` and reloads that
+    guard immediately (`admin` only; the `AdminApi` section needs a restart).
   - *Console* — runs the game's own host commands (`setpassword`, `addcondition`, …).
   - Restart / Stop buttons in the header.
 

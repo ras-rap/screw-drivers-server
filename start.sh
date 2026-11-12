@@ -156,8 +156,6 @@ install_mod() {
 	fi
 
 	mkdir -p "$SERVER_DIR/BepInEx/plugins"
-	# The admin API used to ship as its own plugin; it lives in ModTheIsland now.
-	rm -f "$SERVER_DIR/BepInEx/plugins/ScrewDriversAdmin.dll"
 	local plugin dest
 	for plugin in "$BEPINEX_SRC"/plugins/*.dll; do
 		[[ -f "$plugin" ]] || continue
@@ -190,6 +188,9 @@ log_mod_state() {
 
 if [[ "$SD_ADMIN_ENABLED" == "1" ]]; then
 	install_mod
+	# Stale plugins from older layouts / development builds must not survive here.
+	rm -f "$SERVER_DIR/BepInEx/plugins/ScrewDriversAdmin.dll" \
+		"$SERVER_DIR/BepInEx/plugins/FakePlayerProbe.dll"
 	log_mod_state
 	if [[ -z "$SD_ADMIN_TOKEN" ]]; then
 		SD_ADMIN_TOKEN="$(head -c 16 /dev/urandom 2> /dev/null | od -An -tx1 | tr -d ' \n')"

@@ -56,6 +56,22 @@ export type PanelChatLine = {
   message: string;
 };
 
+export type PanelSetting = {
+  key: string;
+  type: "bool" | "int" | "long" | "float" | "double" | "string";
+  value: string | number | boolean | null;
+  sensitive: boolean;
+  description: string;
+};
+
+export type PanelSettingSection = {
+  name: string;
+  restart: boolean;
+  entries: PanelSetting[];
+};
+
+export type PanelIsland = { uniqueId: number; sortOrder: number; name?: string };
+
 export type PanelBan = {
   scope: string;
   target: string;
