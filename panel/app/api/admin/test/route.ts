@@ -35,7 +35,10 @@ export async function POST(request: Request) {
       timeoutMs: 5000,
     });
     if (result.error !== undefined) {
-      return Response.json({ ok: false, error: `cannot reach ${url}: ${result.error}` }, { status: 502 });
+      return Response.json(
+        { ok: false, error: `cannot reach ${url} - ${result.error}`, hint: result.hint, url },
+        { status: 502 },
+      );
     }
     if (!result.ok) {
       return Response.json(

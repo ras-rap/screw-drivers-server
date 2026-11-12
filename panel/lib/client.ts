@@ -94,7 +94,9 @@ export async function panelFetch<T>(path: string, init?: { method?: string; body
   try {
     data = text.length > 0 ? JSON.parse(text) : null;
   } catch {
-    throw new Error(text || `HTTP ${response.status}`);
+    // Never paste a whole error page into a toast.
+    const kind = text.trimStart().startsWith("<") ? "an HTML page" : "text";
+    throw new Error(`HTTP ${response.status} came back as ${kind}, not JSON: ${text.replace(/\s+/g, " ").slice(0, 120)}…`);
   }
   if (!response.ok) {
     const message =

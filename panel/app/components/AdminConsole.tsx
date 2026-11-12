@@ -60,6 +60,7 @@ export function AdminConsole({ viewerLabel }: { viewerLabel: string }) {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [editing, setEditing] = useState<string | null>(null);
   const [probe, setProbe] = useState<string | null>(null);
+  const [probeHint, setProbeHint] = useState<string | null>(null);
   const [pterodactyl, setPterodactyl] = useState<{
     configured: boolean;
     url?: string;
@@ -142,6 +143,7 @@ export function AdminConsole({ viewerLabel }: { viewerLabel: string }) {
     setEditing(null);
     setDraft(emptyDraft);
     setProbe(null);
+    setProbeHint(null);
   }
 
   async function testConnection() {
@@ -155,10 +157,13 @@ export function AdminConsole({ viewerLabel }: { viewerLabel: string }) {
         { method: "POST", body },
       );
       setProbe(`ok · ${data.server.name} · ${data.server.version} · ${data.server.players} players · udp ${data.server.port}`);
+      setProbeHint(null);
       toast("connection ok", "ok");
     } catch (problem) {
       setProbe(null);
-      toast(problem instanceof Error ? problem.message : String(problem), "err");
+      const message = problem instanceof Error ? problem.message : String(problem);
+      setProbeHint(message);
+      toast(message, "err");
     } finally {
       setBusy(false);
     }
@@ -501,6 +506,7 @@ export function AdminConsole({ viewerLabel }: { viewerLabel: string }) {
               </button>
             ) : null}
             {probe !== null ? <span className="muted mono">{probe}</span> : null}
+            {probeHint !== null ? <span className="muted">{probeHint}</span> : null}
           </div>
         </section>
 
