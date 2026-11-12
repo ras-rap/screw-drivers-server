@@ -25,9 +25,9 @@ const servers = [
     identifier: "ptero12ab",
     name: "Ptero EU #1",
     status: "running",
+    node: 1,
     relationships: {
       allocations: { data: [{ attributes: { ip: nodeIp, port: adminPort, ip_alias: null } }] },
-      node: { attributes: { name: "node-eu" } },
     },
   },
   {
@@ -35,9 +35,9 @@ const servers = [
     identifier: "ptero34cd",
     name: "Ptero US #2",
     status: "offline",
+    node: 2,
     relationships: {
       allocations: { data: [{ attributes: { ip: nodeIp, port: adminPort + 1, ip_alias: null } }] },
-      node: { attributes: { name: "node-us" } },
     },
   },
 ];

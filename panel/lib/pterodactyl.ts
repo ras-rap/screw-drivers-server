@@ -32,7 +32,9 @@ const serverAttributes = z.object({
   identifier: z.string(),
   name: z.string(),
   status: z.string().nullable().optional(),
-  node: z.string().optional(),
+  // The application API returns the node *id* here (a number) unless the relationship
+  // was included; older/newer panels differ, so accept both shapes.
+  node: z.union([z.string(), z.number()]).nullable().optional(),
   relationships: z
     .object({
       allocations: z.object({ data: z.array(z.object({ attributes: allocation })) }).optional(),
@@ -92,7 +94,25 @@ async function request<T>(config: PterodactylConfig, path: string, init: Request
     );
   }
   if (text.length === 0) return schema.parse({});
-  return schema.parse(JSON.parse(text));
+
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(text);
+  } catch {
+    throw new PterodactylError(502, `Pterodactyl answered with something that is not JSON (${text.slice(0, 120)}…)`);
+  }
+
+  const parsed = schema.safeParse(parsedJson);
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    const where = first.path.length > 0 ? first.path.join(".") : "the answer";
+    throw new PterodactylError(
+      502,
+      `unexpected answer from Pterodactyl (${where}: ${first.message})`,
+      "this usually means the panel runs a different Pterodactyl version than the panel expects - report it with the Pterodactyl version from Admin -> Settings",
+    );
+  }
+  return parsed.data;
 }
 
 function toServer(attributes: z.infer<typeof serverAttributes>): PterodactylServer {
@@ -105,7 +125,9 @@ function toServer(attributes: z.infer<typeof serverAttributes>): PterodactylServ
     id: attributes.id,
     identifier: attributes.identifier,
     name: attributes.name,
-    node: attributes.relationships?.node?.attributes?.name ?? attributes.node,
+    node:
+      attributes.relationships?.node?.attributes?.name ??
+      (typeof attributes.node === "number" ? `node #${attributes.node}` : attributes.node ?? undefined),
     status: attributes.status ?? undefined,
     allocations,
   };
