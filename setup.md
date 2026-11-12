@@ -246,6 +246,35 @@ dig +short tornado.krakenhosting.net
 | 3. answers `200`, 4. returns `104.x`/`172.67.x` (Cloudflare) | the node's hostname is **proxied** by Cloudflare, which only forwards a few HTTP(S) ports — use the node's IP directly, or set that DNS record to *DNS only* (grey cloud) |
 | 3. answers, external fails, IP is correct | node firewall / provider security group: `ufw allow 25600/tcp` (and the UDP admin port is not needed) |
 | 3. answers, external fails from your office only | your own egress firewall; try from another network |
+| `curl: (7) … Could not connect` (fast, not a timeout) | the host is up and refuses the port: nothing is published there, i.e. it is not an allocation of that server |
+
+### Fixing it without node access
+
+`curl: (7) … Could not connect` within milliseconds means DNS resolved and the TCP
+connection was refused — the node is up, the port is simply not published. Everything
+below is **panel-only** (no shell on the node):
+
+1. **Allocate the port**: *Admin → Nodes → <node> → Allocations* → *Create Allocations* →
+   `25600` (single port) or a range, on the node's IP. Adding a port that already exists
+   elsewhere on the node fails, so pick a free one.
+2. **Allow extra allocations**: *Admin → Servers → <server> → Build Configuration* →
+   **Allocation Limit** — `0` means "no additional allocations may be attached" and is the
+   usual reason the next step offers nothing. Set it to `1` (or more) and save.
+3. **Attach it**: same page → *Additional Allocations* → add `25600` → save. The *primary*
+   allocation stays the game port (`25603`); the admin port is an additional one.
+4. **Restart the server** from the console. Wings recreates the container with the new port
+   mappings; a game-process restart alone does not. If it still does not appear, use
+   *Reinstall*/*Rebuild Container* (advanced options) — it does not touch the volume.
+5. Set the egg's **`Admin Port`** variable to `25600`, confirm the console log shows
+   `[sd] admin api  : http://0.0.0.0:25600`, then retest:
+
+   ```bash
+   curl -sS -m 5 -o /dev/null -w '%{http_code}\n' \
+     -H 'Authorization: Bearer <token>' http://<node>:25600/status
+   ```
+
+   `200` means it is reachable; `401 {"error":"missing or wrong token"}` means the port
+   works and only the token is wrong.
 
 If the admin port cannot be exposed at all (NAT'd node, no public IP), leave it private and
 reach it over the WireGuard/Tailscale overlay instead — the panel only needs *some* route to
