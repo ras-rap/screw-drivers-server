@@ -212,6 +212,45 @@ Two details that bite:
 - put the **second allocation's** port into the `Admin Port` variable, and set
   `Admin Token` to a fixed value so the panel keeps working across restarts.
 
+### The admin API is not reachable from outside
+
+The admin port is an **allocation** like the game port: wings publishes exactly the server's
+allocations, so a number that was only typed into `Admin Port` (and never allocated) is
+unreachable even though the plugin binds it inside the container. Run this ladder, in order:
+
+```bash
+# 0. what actually happened to the request (curl -s hides the error)
+curl -sS -m 5 -o /dev/null -w '%{http_code}\n' \
+  -H "Authorization: Bearer <token>" http://<node>:25600/status
+
+# 1. does the server own a 25600 allocation, on which IP?
+curl -s -H "Authorization: Bearer ptla_…" \
+  "https://ptero.example.com/api/application/servers/12?include=allocations" \
+  | jq -r '.attributes.relationships.allocations.data[].attributes | "\(.ip) \(.port) \(.ip_alias)"'
+
+# 2. on the node: is the container publishing it?
+docker ps --format '{{.Names}} {{.Ports}}' | grep 25600
+
+# 3. on the node: does the API answer locally?
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer <token>" \
+  http://127.0.0.1:25600/status
+
+# 4. where does the DNS name point?
+dig +short tornado.krakenhosting.net
+```
+
+| Symptom | Cause / fix |
+| --- | --- |
+| 1. has no 25600, 2. prints nothing | the port was never allocated — *Admin → Nodes → node → Allocations* create it, attach it to the server (*Build Configuration → add allocation*), then **restart** the server |
+| 2. prints nothing, 1. is fine | wings has not applied the allocation yet: restart the server from the panel |
+| 3. answers `200`, 4. returns `104.x`/`172.67.x` (Cloudflare) | the node's hostname is **proxied** by Cloudflare, which only forwards a few HTTP(S) ports — use the node's IP directly, or set that DNS record to *DNS only* (grey cloud) |
+| 3. answers, external fails, IP is correct | node firewall / provider security group: `ufw allow 25600/tcp` (and the UDP admin port is not needed) |
+| 3. answers, external fails from your office only | your own egress firewall; try from another network |
+
+If the admin port cannot be exposed at all (NAT'd node, no public IP), leave it private and
+reach it over the WireGuard/Tailscale overlay instead — the panel only needs *some* route to
+`http://<address>:<admin port>`.
+
 ### Changing the game port
 
 Pterodactyl has no "game port" setting: ports are **allocations** on the node, and the
