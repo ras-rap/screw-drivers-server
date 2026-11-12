@@ -248,6 +248,42 @@ dig +short tornado.krakenhosting.net
 | 3. answers, external fails from your office only | your own egress firewall; try from another network |
 | `curl: (7) … Could not connect` (fast, not a timeout) | the host is up and refuses the port: nothing is published there, i.e. it is not an allocation of that server |
 
+### The game works but every TCP port is refused
+
+Symptom: players join over UDP, the admin API answers `curl: (7) … Could not connect`
+within milliseconds on **all** of the server's ports, and `/status` on the *primary*
+allocation is refused too.
+
+Wings publishes every allocation as **both** `/tcp` and `/udp` — for each mapping it
+builds two Docker bindings:
+
+```go
+tcp := nat.Port(fmt.Sprintf("%d/tcp", port))
+udp := nat.Port(fmt.Sprintf("%d/udp", port))
+out[tcp] = append(out[tcp], binding)
+out[udp] = append(out[udp], binding)
+```
+
+so a refusal on TCP while UDP works is not the panel, the egg or the plugin: something in
+front of the node rejects inbound **TCP** to those ports (a `REJECT` policy, a provider
+security group that only forwards UDP, or 1:1 NAT with UDP-only forwards). A filtered
+port would time out; a rejection answers with RST in milliseconds, which is what you see.
+
+What you can do without a shell on the node:
+
+1. **Prove it is range-wide, not one port**: allocate a port from a *different* range on
+   the node (if it offers one), put it in `Admin Port`, restart, retest. Works ⇒ the host
+   blocks that range over TCP.
+2. **Ask the host** (this is their network policy, not yours):
+
+   > My Pterodactyl server's allocations only accept UDP; TCP connections to
+   > `<ip>:<port>` are refused. Wings binds both tcp and udp for every allocation — can
+   > you open inbound TCP for my allocations (or tell me which port range is open on TCP)?
+
+3. **Workaround** if TCP stays closed: keep the admin API private and reach it over
+   WireGuard/Tailscale from the panel host (the panel only needs *some* route to
+   `http://<address>:<admin port>`). Running the panel *on* the node is the other option.
+
 ### Fixing it without node access
 
 `curl: (7) … Could not connect` within milliseconds means DNS resolved and the TCP
