@@ -60,10 +60,14 @@ export function AdminConsole({ viewerLabel }: { viewerLabel: string }) {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [editing, setEditing] = useState<string | null>(null);
   const [probe, setProbe] = useState<string | null>(null);
-  const [pterodactyl, setPterodactyl] = useState<{ configured: boolean; servers: PterodactylServer[] }>({
-    configured: false,
-    servers: [],
-  });
+  const [pterodactyl, setPterodactyl] = useState<{
+    configured: boolean;
+    url?: string;
+    servers: PterodactylServer[];
+    error?: string;
+    hint?: string;
+    keyLooksValid?: boolean;
+  }>({ configured: false, servers: [] });
   const [allocation, setAllocation] = useState<Record<number, string>>({});
   const [emails, setEmails] = useState("");
   const [userIds, setUserIds] = useState("");
@@ -91,7 +95,14 @@ export function AdminConsole({ viewerLabel }: { viewerLabel: string }) {
 
   async function loadPterodactyl() {
     try {
-      const data = await panelFetch<{ configured: boolean; servers: PterodactylServer[] }>("/api/admin/pterodactyl");
+      const data = await panelFetch<{
+        configured: boolean;
+        url?: string;
+        servers: PterodactylServer[];
+        error?: string;
+        hint?: string;
+        keyLooksValid?: boolean;
+      }>("/api/admin/pterodactyl");
       setPterodactyl(data);
       setAllocation((current) => {
         const next = { ...current };
@@ -310,9 +321,31 @@ export function AdminConsole({ viewerLabel }: { viewerLabel: string }) {
           <section className="card">
             <h2>Import from Pterodactyl</h2>
             <div className="sub">
+              {pterodactyl.url ? <span className="mono">{pterodactyl.url}</span> : "application API"}
+              {" · "}
               pick the allocation the server&apos;s admin API listens on, then paste that server&apos;s token (its
               <code> Admin Token </code> egg variable) into the form below
+              {" "}
+              <button className="mini ghost" onClick={() => void loadPterodactyl()}>
+                reload
+              </button>
             </div>
+            {pterodactyl.error ? (
+              <p className="muted" style={{ color: "var(--error)" }}>
+                {pterodactyl.error}
+              </p>
+            ) : null}
+            {pterodactyl.hint ? <p className="muted">{pterodactyl.hint}</p> : null}
+            {pterodactyl.error ? (
+              <p className="muted" style={{ fontSize: 12 }}>
+                checklist: the key must be an <span className="mono">Application</span> API key
+                (<span className="mono">ptla_…</span>) with <em>Servers: read</em> + <em>Servers: power</em>;{" "}
+                <span className="mono">PTERODACTYL_URL</span> is the panel base URL (no <span className="mono">/api</span>);
+                the panel must be able to reach it (firewall, Cloudflare bot protection, IP allowlist); and the
+                container needs a recreate after editing <span className="mono">.env</span> —
+                <span className="mono"> docker compose up -d</span>, not <span className="mono">restart</span>.
+              </p>
+            ) : null}
             <table>
               <thead>
                 <tr>

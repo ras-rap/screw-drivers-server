@@ -160,3 +160,14 @@ details.card > summary::before {
   color: var(--muted);
 }
 details.card[open] > summary::before { content: "▾ "; }
+
+.site-footer {
+  margin-top: 28px;
+  padding: 14px 18px 20px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+.site-footer a { color: var(--muted); text-decoration: underline dotted; }
+.site-footer a:hover { color: var(--accent); }

@@ -48,6 +48,17 @@ const singleResponse = z.object({ attributes: serverAttributes });
 export const powerSignal = z.enum(["start", "stop", "restart", "kill"]);
 export type PowerSignal = z.infer<typeof powerSignal>;
 
+export class PterodactylError extends Error {
+  status: number;
+  hint?: string;
+
+  constructor(status: number, message: string, hint?: string) {
+    super(message);
+    this.status = status;
+    this.hint = hint;
+  }
+}
+
 export function pterodactylConfig(): PterodactylConfig | null {
   const url = process.env.PTERODACTYL_URL?.trim().replace(/\/+$/, "");
   const key = process.env.PTERODACTYL_API_KEY?.trim();
@@ -68,7 +79,17 @@ async function request<T>(config: PterodactylConfig, path: string, init: Request
   });
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(`pterodactyl ${init.method ?? "GET"} ${path} → HTTP ${response.status}${text ? `: ${text.slice(0, 200)}` : ""}`);
+    const hint =
+      response.status === 401 || response.status === 403
+        ? "check that this is an Application API key (ptla_…), not a client key (ptlc_…), and that it has Servers: read + Servers: power"
+        : response.status === 404
+          ? "check PTERODACTYL_URL - it must be the panel base URL, without /api on the end"
+          : undefined;
+    throw new PterodactylError(
+      response.status,
+      `Pterodactyl answered HTTP ${response.status}${text ? `: ${text.slice(0, 160)}` : ""}`,
+      hint,
+    );
   }
   if (text.length === 0) return schema.parse({});
   return schema.parse(JSON.parse(text));
