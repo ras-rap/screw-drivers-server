@@ -11,14 +11,22 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
-  const page = (
+  return (
     <html lang="en">
       <body>
-        {children}
-        <Toaster />
+        {/* Clerk Core 3 requires ClerkProvider inside <body>, not around <html>. */}
+        {authMode === "clerk" ? (
+          <ClerkProvider>
+            {children}
+            <Toaster />
+          </ClerkProvider>
+        ) : (
+          <>
+            {children}
+            <Toaster />
+          </>
+        )}
       </body>
     </html>
   );
-
-  return authMode === "clerk" ? <ClerkProvider>{page}</ClerkProvider> : page;
 }

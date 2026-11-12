@@ -29,6 +29,9 @@ goes through a per-server allowlisted proxy.
 ## Clerk + Discord in five minutes
 
 1. Create an application at <https://dashboard.clerk.com> (free tier is enough).
+   The panel uses Clerk **v7** (`@clerk/nextjs`); Clerk blocks older SDK versions with an
+   "outdated version of Clerk" screen, so bump with `bun add @clerk/nextjs@latest` if that
+   ever appears.
 2. **User & Authentication → Social connections → Discord → Enable**. Clerk ships the
    Discord OAuth app; paste your own Discord client id/secret only if you want your own
    branding.

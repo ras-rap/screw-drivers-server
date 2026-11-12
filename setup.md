@@ -46,6 +46,9 @@ nginx -v
    *Domains* → add `panel.example.com`.
 5. Copy **Publishable key** (`pk_live_…`) and **Secret key** (`sk_live_…`).
 
+The panel targets Clerk **v7 (Core 3)**; Clerk blocks older SDKs with an "outdated version of
+Clerk" screen, so keep `@clerk/nextjs` on `latest` when you touch the panel.
+
 You will sign in with Discord using the account whose email you put in
 `PANEL_ADMIN_EMAILS` — that is what unlocks `/admin`.
 
@@ -267,6 +270,7 @@ docker run --rm -v panel_panel-data:/d -v "$PWD":/backup alpine \
 | `502` from nginx | panel container down or wrong `PANEL_PORT`/upstream: `docker compose logs panel`, `curl -I 127.0.0.1:3000` |
 | Cloudflare `521`/`524` | origin not listening / blocked by firewall; check 443 is reachable from Cloudflare |
 | redirect loop on sign-in | Clerk instance mismatch (dev keys on the prod domain) or `NEXT_PUBLIC_CLERK_SIGN_IN_URL` missing |
+| sign-in page says *"This app uses an outdated version of Clerk"* | Clerk refuses SDKs below its minimum. Upgrade and rebuild: `cd panel && bun add @clerk/nextjs@latest && ./setup.sh` (the repo pins v7+; this is what that error means) |
 | `/admin` says "Admins only" | your signed-in email is not in `PANEL_ADMIN_EMAILS` / `PANEL_ADMIN_USER_IDS` |
 | "this account is not allowed to use the panel" | `PANEL_ALLOWED_*` is set and does not include you; fix in `.env` and restart |
 | "the server rejected the token (401)" | server's `ADMIN_TOKEN` differs from the one in `/admin → Edit` |
