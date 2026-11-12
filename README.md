@@ -335,8 +335,11 @@ two running servers is not safe.
 
    The installer keeps the game files, installs BepInEx + the admin plugin (embedded in
    the egg as base64, so it needs no extra hosting) and pre-builds the wine prefix.
-4. Allocate **two** ports and set them: `Server Port` (UDP, default 38000) and
-   `Admin Port` (TCP, default 38080).
+4. Allocate **two** ports. The **first (primary) allocation is the game port** — wings
+   passes it to the container as `SERVER_PORT`, which `start.sh` uses, so there is no
+   "server port" variable to fill in (Pterodactyl reserves that name and an egg defining
+   it fails to import with *"The selected env variable is invalid."*). Set the second
+   allocation's port in **`Admin Port`** (TCP, the admin API).
 5. Start. The console shows the same `[sd]` lines as in Docker and prints the admin
    token; the panel's stop button sends `stop`, which the runner turns into a clean
    SIGTERM.

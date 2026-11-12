@@ -197,6 +197,15 @@ sudo ufw delete allow 38080/tcp          # if you opened it earlier
 Pterodactyl: import `pterodactyl/egg-screw-drivers-server.json`, allocate the UDP game
 port **and** the TCP admin port, then add `http://<node-ip>:<admin port>` in the panel.
 
+Two details that bite:
+
+- the **primary allocation is the game port**: wings injects it as `SERVER_PORT`, so the egg
+  has no port variable for it (Pterodactyl *reserves* `SERVER_PORT`, `SERVER_IP`,
+  `SERVER_MEMORY`, `STARTUP`, `ENV`, `HOME`, `USER`, `UUID`, `SERVER_UUID` — an egg that
+  defines one fails to import with `The selected env variable is invalid`);
+- put the **second allocation's** port into the `Admin Port` variable, and set
+  `Admin Token` to a fixed value so the panel keeps working across restarts.
+
 ---
 
 ## 6b. Remote servers and Pterodactyl

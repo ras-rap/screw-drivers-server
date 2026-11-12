@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import json
 import pathlib
+import re
 from datetime import datetime, timezone
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -18,6 +19,21 @@ OUT = ROOT / "pterodactyl" / "egg-screw-drivers-server.json"
 PLUGIN = ROOT / "dist" / "ModTheIsland.dll"
 
 MARKER = "__WRITE_START_SH__"
+
+# Pterodactyl\Models\EggVariable::$validationRules — an egg with any of these fails to
+# import with "The selected env variable is invalid." These names are injected by
+# wings/the daemon, so they are not egg variables.
+RESERVED_ENV_NAMES = {
+    "SERVER_MEMORY",
+    "SERVER_IP",
+    "SERVER_PORT",
+    "ENV",
+    "HOME",
+    "USER",
+    "STARTUP",
+    "SERVER_UUID",
+    "UUID",
+}
 PLUGIN_MARKER = "__WRITE_PLUGIN_DLL__"
 HEREDOC = "SD_START_EOF"
 
@@ -147,13 +163,6 @@ EGG = {
             "required|integer|between:1,32",
         ),
         var(
-            "Server Port",
-            "UDP port the server binds. Must match the allocated port.",
-            "SERVER_PORT",
-            "38000",
-            "required|integer|between:1024,65535",
-        ),
-        var(
             "Host Steam ID",
             "SteamID64 that becomes host automatically. 0 = no automatic host.",
             "HOST_STEAM_ID",
@@ -235,6 +244,17 @@ EGG = {
         ),
     ],
 }
+
+ENV_RULE = re.compile(r"^[\w]{1,191}$")
+for variable in EGG["variables"]:
+    name = variable["env_variable"]
+    if not ENV_RULE.match(name):
+        raise SystemExit(f"env_variable {name!r} does not match Pterodactyl's ^[\\w]{{1,191}}$ rule")
+    if name in RESERVED_ENV_NAMES:
+        raise SystemExit(
+            f"env_variable {name!r} is reserved by Pterodactyl (wings supplies it); "
+            "the egg would fail to import with \"The selected env variable is invalid.\""
+        )
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
 with OUT.open("w", encoding="utf-8", newline="\n") as handle:

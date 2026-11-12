@@ -4,7 +4,7 @@
     "version": "PTDL_v2",
     "update_url": null
   },
-  "exported_at": "2026-11-11T16:40:16+00:00",
+  "exported_at": "2026-11-12T04:07:22+00:00",
   "name": "Screw Drivers",
   "author": "local@localhost",
   "description": "Dedicated server for Screw Drivers (Creactstudios). Ships only as a Windows build inside the paid depot 1279510, so it runs under Wine in this container. The server needs no Steam client at runtime: players connect by IP:PORT (Multiplayer -> Direct Connect) or via Noble Connect when enabled. The first player to join can be made host, or the server is claimed in-game with the host password printed on boot. The bundled ModTheIsland plugin (crash/DoS/exploit guards, bans) exposes an HTTP admin API and a web console at http://<node>:<admin port>/ - status, players, live chat, kick/ban, server and race settings, island switch, host commands, stop/restart - so the server can be managed without joining it. Allocate one UDP (game) and one TCP (admin) port.",
@@ -56,16 +56,6 @@
       "user_viewable": true,
       "user_editable": true,
       "rules": "required|integer|between:1,32",
-      "field_type": "text"
-    },
-    {
-      "name": "Server Port",
-      "description": "UDP port the server binds. Must match the allocated port.",
-      "env_variable": "SERVER_PORT",
-      "default_value": "38000",
-      "user_viewable": true,
-      "user_editable": true,
-      "rules": "required|integer|between:1024,65535",
       "field_type": "text"
     },
     {
