@@ -431,6 +431,7 @@ docker run --rm -v panel_panel-data:/d -v "$PWD":/backup alpine \
 | `/admin` says "Admins only" | your signed-in email is not in `PANEL_ADMIN_EMAILS` / `PANEL_ADMIN_USER_IDS` |
 | "this account is not allowed to use the panel" | `PANEL_ALLOWED_*` is set and does not include you; fix in `.env` and restart |
 | "the server rejected the token (401)" | server's `ADMIN_TOKEN` differs from the one in `/admin → Edit` |
+| console has no `[ModTheIsland]` lines and the API never answers | the plugin file is missing or truncated: check the `[sd] mod : ModTheIsland.dll <bytes> bytes sha256 …` line — it must be 174080 bytes / sha256 `abbe2e62…`. Anything smaller means a broken copy; reinstall (the installer downloads it and verifies the hash) |
 | "cannot reach http://…" | panel cannot route to the admin port (VPN/firewall/docker network) |
 | stale data in the panel | Cloudflare caching `/api/*` — add the bypass cache rule |
 | anyone can sign in and see servers | `PANEL_ALLOWED_EMAILS` empty by design; set it |

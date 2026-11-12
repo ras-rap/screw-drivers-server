@@ -8,7 +8,7 @@ them into pterodactyl/egg-screw-drivers-server.json so the two cannot drift.
 """
 from __future__ import annotations
 
-import base64
+import hashlib
 import json
 import pathlib
 import re
@@ -17,6 +17,9 @@ from datetime import datetime, timezone
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "pterodactyl" / "egg-screw-drivers-server.json"
 PLUGIN = ROOT / "dist" / "ModTheIsland.dll"
+# Downloaded by the installer and verified by sha256 instead of being embedded as a
+# 232 KB base64 blob (smaller egg, and a truncated download now fails loudly).
+PLUGIN_URL = "https://raw.githubusercontent.com/ras-rap/screw-drivers-server/main/dist/ModTheIsland.dll"
 
 MARKER = "__WRITE_START_SH__"
 
@@ -59,22 +62,42 @@ def install_script() -> str:
         f"{HEREDOC}\n"
         "chmod +x \"$SERVER_DIR/start.sh\"\n"
     )
-    if MARKER not in INSTALL_SH:
-        raise SystemExit(f"install-egg.sh lost its {MARKER} marker")
-    if PLUGIN_MARKER not in INSTALL_SH:
-        raise SystemExit(f"install-egg.sh lost its {PLUGIN_MARKER} marker")
+    def inject(text: str, marker: str, payload: str) -> str:
+        # The marker must sit alone on its own line: a bare replace() would also hit the
+        # marker named in install-egg.sh's header comment and paste the payload into it,
+        # which silently turned the heredoc into executable code.
+        needle = f"\n{marker}\n"
+        if text.count(needle) != 1:
+            raise SystemExit(f"install-egg.sh must contain {marker} exactly once, alone on a line")
+        return text.replace(needle, "\n" + payload, 1)
     if not PLUGIN.is_file():
         raise SystemExit(f"missing {PLUGIN}; build ../mti first (see README)")
 
-    payload = base64.encodebytes(PLUGIN.read_bytes()).decode("ascii")
-    plugin_writer = (
-        "base64 -d > \"$SERVER_DIR/BepInEx/plugins/ModTheIsland.dll\" <<'SD_PLUGIN_EOF'\n"
-        f"{payload}"
-        "SD_PLUGIN_EOF\n"
-        "chmod 0644 \"$SERVER_DIR/BepInEx/plugins/ModTheIsland.dll\"\n"
-    )
-    script = INSTALL_SH.replace(MARKER, writer)
-    return script.replace(PLUGIN_MARKER, plugin_writer)
+    blob = PLUGIN.read_bytes()
+    digest = hashlib.sha256(blob).hexdigest()
+    plugin_writer = f'''echo "installing the server mod ({len(blob)} bytes)"
+plugin_dir="$SERVER_DIR/BepInEx/plugins"
+plugin="$plugin_dir/ModTheIsland.dll"
+mkdir -p "$plugin_dir"
+rm -f "$plugin_dir/ScrewDriversAdmin.dll"
+if curl -fsSL -o "$plugin.tmp" "{PLUGIN_URL}"; then
+	if [ "$(sha256sum "$plugin.tmp" | cut -d' ' -f1)" = "{digest}" ]; then
+		mv -f "$plugin.tmp" "$plugin"
+		chmod 0644 "$plugin"
+		echo "mod installed: $(wc -c < "$plugin" | tr -d ' ') bytes, sha256 verified"
+	else
+		echo "warning: the downloaded ModTheIsland.dll has the wrong sha256"
+		echo "         expected: {digest}"
+		echo "         got:      $(sha256sum "$plugin.tmp" | cut -d' ' -f1)"
+		echo "         the repository moved on - download the latest egg and reinstall"
+		rm -f "$plugin.tmp"
+	fi
+else
+	echo "warning: could not download ModTheIsland.dll - the admin API will be unavailable"
+fi
+'''
+    script = inject(INSTALL_SH, MARKER, writer)
+    return inject(script, PLUGIN_MARKER, plugin_writer)
 
 
 def var(name, description, env, default, rules, editable=True):

@@ -171,8 +171,26 @@ install_mod() {
 	done
 }
 
+# Logs which mod file is about to be loaded: a missing or truncated DLL used to be silent
+# (the API simply never answered), so say it out loud on every boot.
+log_mod_state() {
+	local plugin="$SERVER_DIR/BepInEx/plugins/ModTheIsland.dll"
+	if [[ ! -f "$plugin" ]]; then
+		log "mod         : ModTheIsland.dll MISSING - no admin API (reinstall the server)"
+		return 0
+	fi
+	local bytes hash
+	bytes="$(wc -c < "$plugin" | tr -d ' ')"
+	hash="$(sha256sum "$plugin" 2> /dev/null | cut -c1-16)"
+	log "mod         : ModTheIsland.dll ${bytes} bytes sha256 ${hash}"
+	if [[ "$bytes" -lt 100000 ]]; then
+		log "mod         : too small to be valid - truncated; reinstall or re-upload the mod"
+	fi
+}
+
 if [[ "$SD_ADMIN_ENABLED" == "1" ]]; then
 	install_mod
+	log_mod_state
 	if [[ -z "$SD_ADMIN_TOKEN" ]]; then
 		SD_ADMIN_TOKEN="$(head -c 16 /dev/urandom 2> /dev/null | od -An -tx1 | tr -d ' \n')"
 		[[ -n "$SD_ADMIN_TOKEN" ]] && log "no ADMIN_TOKEN set, generated one for this run"

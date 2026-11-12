@@ -12,8 +12,9 @@
 # start.sh and the mod are written FIRST, so a failed download still leaves a server
 # that boots and tells you what is wrong instead of failing with "No such file".
 #
-# The __WRITE_*__ markers are replaced by tools/build_egg.py with heredocs that embed
-# start.sh and ModTheIsland.dll, so the egg stays self-contained.
+# The __WRITE_*__ markers are replaced by tools/build_egg.py: __WRITE_START_SH__ becomes a
+# heredoc with start.sh, __WRITE_PLUGIN_DLL__ becomes a download of ModTheIsland.dll from
+# the public repo, verified against a sha256 baked into the egg.
 set -uo pipefail
 
 SERVER_DIR="${SERVER_DIR:-/mnt/server}"
