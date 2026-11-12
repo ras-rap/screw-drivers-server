@@ -212,6 +212,37 @@ Two details that bite:
 - put the **second allocation's** port into the `Admin Port` variable, and set
   `Admin Token` to a fixed value so the panel keeps working across restarts.
 
+### Changing the game port
+
+Pterodactyl has no "game port" setting: ports are **allocations** on the node, and the
+*primary/default* allocation is what wings hands to the container as `SERVER_PORT`.
+`start.sh` binds exactly that, so the game port and the primary allocation always match —
+Docker publishes the allocation, so binding anything else would make the server
+unreachable from outside. (That is also why the egg has no port variable: `SERVER_PORT`
+is a reserved name in Pterodactyl.)
+
+1. **Admin → Nodes → *your node* → Allocations**: create the port you want (or a range)
+   on the node's IP, if it is not listed yet.
+2. **Admin → Servers → *your server* → Build Configuration**: set **Default Allocation**
+   to it. Keep the admin allocation in the extra allocations.
+3. **Restart** the server. The console prints `[sd] port/udp   : <port>` — that is what
+   players type into Direct Connect.
+
+The application API does the same thing (note: `allocation` is the allocation **id**, from
+`GET /api/application/nodes/{node}/allocations`, not the port number):
+
+```bash
+curl -X PATCH https://ptero.example.com/api/application/servers/12/build \
+  -H "Authorization: Bearer ptla_…" -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{"allocation": 341, "add_allocations": [], "remove_allocations": []}'
+```
+
+Limits (`memory`, `disk`, …) are left untouched when you omit them, so this call only
+moves the port. Changing the **admin** port is different: set the `Admin Port` variable to
+the new allocation's port, restart, then update that server's URL in the panel
+(`/admin → Edit`).
+
 ---
 
 ## 6b. Remote servers and Pterodactyl
