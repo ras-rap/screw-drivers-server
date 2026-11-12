@@ -206,18 +206,26 @@ EGG = {
         ),
         var(
             "Admin Port",
-            "TCP port of the admin API. Allocate it and set it here.",
+            "TCP port of the admin API. Simplest: put the game port here too (the allocation "
+            "is published for TCP and UDP, the game only uses UDP) and you need just one "
+            "allocation; otherwise allocate a second port and set it here. Must match a "
+            "published allocation or nothing external can reach it.",
             "ADMIN_PORT",
             "38080",
             "required|integer|between:1024,65535",
         ),
-        var(
-            "Admin Bind Address",
-            "0.0.0.0 to reach it from outside the container, 127.0.0.1 to keep it internal.",
-            "ADMIN_BIND",
-            "0.0.0.0",
-            "required|string|max:45",
-        ),
+        {
+            **var(
+                "Admin Bind Address",
+                "Leave this at 0.0.0.0. The container cannot bind the node's public IP - the "
+                "daemon forwards the allocation for you, so anything else makes the admin API "
+                "unreachable. Set 127.0.0.1 only to keep the API inside the container.",
+                "ADMIN_BIND",
+                "0.0.0.0",
+                "required|string|max:45",
+            ),
+            "user_editable": False,
+        },
         secret(
             "Admin Token",
             "Bearer token for the admin API. Empty generates a random one per boot, printed in the console.",

@@ -210,7 +210,14 @@ Two details that bite:
   `SERVER_MEMORY`, `STARTUP`, `ENV`, `HOME`, `USER`, `UUID`, `SERVER_UUID` — an egg that
   defines one fails to import with `The selected env variable is invalid`);
 - put the **second allocation's** port into the `Admin Port` variable, and set
-  `Admin Token` to a fixed value so the panel keeps working across restarts.
+  `Admin Token` to a fixed value so the panel keeps working across restarts;
+- **one allocation is enough** if you set `Admin Port` to the *game* port: wings publishes
+  every allocation as `port/tcp` **and** `port/udp`, the game only takes UDP and the admin
+  API takes TCP, so they never collide;
+- `Admin Bind Address` must stay **0.0.0.0**. The container has no interface with the
+  node's public IP, so binding that (a natural-looking choice) fails and the API never
+  listens — `start.sh` now warns about it and prints
+  `[sd] admin api : answering on 127.0.0.1:<port>` or a `NOT answering` block after boot.
 
 ### The admin API is not reachable from outside
 

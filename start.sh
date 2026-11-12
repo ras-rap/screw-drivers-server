@@ -192,7 +192,15 @@ log "password   : $([[ -n "$SERVER_PASSWORD" ]] && echo set || echo none)"
 log "host       : $([[ -n "$HOST_STEAM_ID" && "$HOST_STEAM_ID" != 0 ]] && echo "steamid $HOST_STEAM_ID" || { [[ "$ALLOW_FIRST_PLAYER_HOST" == 1 ]] && echo "first player to join" || echo "claim with host_password.txt in-game"; })"
 log "extra args : ${EXTRA_ARGS:-none}"
 if [[ "$SD_ADMIN_ENABLED" == "1" ]]; then
-	log "admin api  : http://$SD_ADMIN_BIND:$SD_ADMIN_PORT (bearer token $SD_ADMIN_TOKEN)"
+	case "$SD_ADMIN_BIND" in
+	0.0.0.0 | 127.0.0.1 | localhost | "::" | "*") ;;
+	*)
+		log "warning: admin bind address '$SD_ADMIN_BIND' does not exist inside this container"
+		log "         set 'Admin Bind Address' to 0.0.0.0 - the daemon forwards the allocation for you"
+		;;
+	esac
+	log "admin api  : bind $SD_ADMIN_BIND:$SD_ADMIN_PORT (container-internal; publish/forward it outside)"
+	log "             token: $SD_ADMIN_TOKEN"
 	log "             curl -s -H 'Authorization: Bearer $SD_ADMIN_TOKEN' http://127.0.0.1:$SD_ADMIN_PORT/status"
 else
 	log "admin api  : disabled"
@@ -200,6 +208,26 @@ fi
 
 STOPPING=0
 WINE_PID=""
+
+# Polls the admin API from inside the container so a dead API is a log line, not a
+# silent "why can't the panel reach it". Runs in the background while wine boots.
+admin_api_selfcheck() {
+	local tries=0 code=""
+	while [[ $tries -lt 90 ]]; do
+		sleep 1
+		tries=$((tries + 1))
+		code="$(curl -s -o /dev/null -w '%{http_code}' -m 2 "http://127.0.0.1:${SD_ADMIN_PORT}/health" 2> /dev/null || true)"
+		if [[ -n "$code" && "$code" != "000" ]]; then
+			log "admin api  : answering on 127.0.0.1:${SD_ADMIN_PORT} (HTTP ${code})"
+			return 0
+		fi
+	done
+	log "admin api  : NOT answering on 127.0.0.1:${SD_ADMIN_PORT} after 90s - check, in this order:"
+	log "             1. Admin Bind Address is 0.0.0.0 (not the node's public IP); it is '$SD_ADMIN_BIND'"
+	log "             2. the mod is installed: $SERVER_DIR/BepInEx/plugins/ModTheIsland.dll"
+	log "             3. it answers locally but not outside: the daemon must publish that TCP port"
+	log "                (an allocation) and its firewall must allow it"
+}
 
 shutdown() {
 	[[ "$STOPPING" == "1" ]] && return
@@ -239,6 +267,9 @@ while :; do
 	log "launching wine $EXE_NAME ${ARGS[*]}"
 	wine "$EXE_NAME" "${ARGS[@]}" &
 	WINE_PID=$!
+	if [[ "$SD_ADMIN_ENABLED" == "1" ]]; then
+		admin_api_selfcheck &
+	fi
 	wait "$WINE_PID"
 	rc=$?
 	WINE_PID=""
