@@ -15,6 +15,7 @@ const args = new Map(
 const port = Number(args.get("--port") ?? 38091);
 const token = args.get("--token") ?? "mock-token";
 const name = args.get("--name") ?? "Mock server";
+const unsaved = args.has("--unsaved");
 
 const started = Date.now();
 const chat = [];
@@ -23,6 +24,36 @@ const bans = [];
 const players = [
   { playerId: 3, name: "MockPlayer", steamId: "76561190000000042", endpoint: "10.0.0.99:40000", ping: 24, idleSeconds: 2, isHost: true },
 ];
+
+// Only the sections the panel's Mod tab needs to be exercised: an auto-ban switch with a
+// numeric companion, so a Boolean round-trip and a type rejection are both reachable.
+let autoBanEnabled = true;
+let autoBanStrikes = 25;
+
+function configSections() {
+  return [
+    {
+      name: "AutoBan",
+      restart: false,
+      entries: [
+        {
+          key: "Enabled",
+          type: "bool",
+          value: autoBanEnabled,
+          description: "Master switch for every automatic ban.",
+          sensitive: false,
+        },
+        {
+          key: "Strikes",
+          type: "int",
+          value: autoBanStrikes,
+          description: "Offences needed inside the window before an endpoint is banned.",
+          sensitive: false,
+        },
+      ],
+    },
+  ];
+}
 
 function status() {
   return {
@@ -105,8 +136,33 @@ const server = createServer(async (request, response) => {
     addChat("player", kicked.name, "was kicked");
     return json(200, { ok: true });
   }
-  if (path === "/command" || path === "/settings" || path === "/hostsettings" || path === "/gamestate" || path === "/host" || path === "/island" || path === "/dm") {
+  if (path === "/settings" || path === "/hostsettings") {
+    // The real mod answers "saved" after it captured the new values into its snapshot;
+    // --unsaved simulates SaveOnChange=false so the panel's warning path is reachable.
+    return json(200, { ok: true, saved: !unsaved });
+  }
+  if (path === "/command" || path === "/gamestate" || path === "/host" || path === "/island" || path === "/dm") {
     return json(200, { ok: true });
+  }
+  if (path === "/config" && request.method === "GET") return json(200, { ok: true, sections: configSections() });
+  if (path === "/config" && request.method === "POST") {
+    const entry = configSections()
+      .find((section) => section.name === body.section)
+      ?.entries.find((candidate) => candidate.key === body.key);
+    if (!entry) return json(400, { ok: false, applied: [], restartRequired: [], errors: [`no such setting ${body.section}/${body.key}`] });
+    if (entry.type === "bool") {
+      if (body.value !== "true" && body.value !== "false") {
+        return json(400, { ok: false, applied: [], restartRequired: [], errors: [`${body.key} is true or false`] });
+      }
+      if (body.key === "Enabled") autoBanEnabled = body.value === "true";
+    } else {
+      const number = Number(body.value);
+      if (!Number.isInteger(number) || number < 0) {
+        return json(400, { ok: false, applied: [], restartRequired: [], errors: [`${body.key} is a whole number >= 0`] });
+      }
+      if (body.key === "Strikes") autoBanStrikes = number;
+    }
+    return json(200, { ok: true, applied: [`${body.section}/${body.key}`], restartRequired: [], errors: [] });
   }
   if (path === "/restart" || path === "/stop") return json(200, { ok: true, action: path.slice(1) });
   return json(404, { ok: false, error: `mock: no ${path}` });

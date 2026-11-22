@@ -1,0 +1,22 @@
+# Build-context hygiene. `.env` holds CLERK_SECRET_KEY + PTERODACTYL_API_KEY and
+# servers.json holds every game server's admin token; the build stage does `COPY . .`, so
+# without this file both end up in an image layer - readable by anyone who can pull the
+# image or run `docker save`, even though the app only ever reads them from the runtime
+# environment. Next also copies a `.env` it finds here into .next/standalone, which the
+# runtime stage then copies into /app, so excluding it here is the whole fix.
+.env
+.env.*
+!.env.example
+servers.json
+data/
+
+# dependencies and build output are produced inside the image
+node_modules
+.next
+out
+*.tsbuildinfo
+
+# local noise
+*.log
+.DS_Store
+Thumbs.db

@@ -109,7 +109,10 @@ All variables are read by `start.sh`; see `.env.example`.
 | `STDIN_COMMANDS` | `1` | Accept `stop`/`shutdown`/`quit` on stdin (Pterodactyl stop) |
 
 Guard, ban and rate-limit knobs live in `data/BepInEx/config/ModTheIsland.cfg` (see
-section 5 for the defaults this repo ships).
+section 5 for the defaults this repo ships), and all of them can be changed live from the
+panel's *Mod settings* tab or `POST /config` - no restart. `AutoBan/Enabled` is the one
+switch that turns every automatic ban off. Server name, join password, slot count and the
+race rules are persisted by the mod itself, so a restart no longer loses them.
 
 Complete server command line (from `ServerCommandLineParser` in `Assembly-CSharp`):
 `-ip`, `-port`, `-password`, `-servername`, `-maxplayers`, `-nobleconnect`,
@@ -191,9 +194,14 @@ so a web UI can tail the conversation with one cheap request.
   one window after the *last* offence, and every new offence inside the window extends
   it. A shared NAT address therefore cannot be locked out forever by one abuser, while
   an endpoint that keeps misbehaving stays banned as long as it keeps misbehaving.
-- Automatic bans (exploit strikes, packet/connect floods) = permanent SteamID + rolling
-  endpoint ban. They trigger at `ExploitGuard/AutoBanThreshold` strikes inside the
-  window (default 10).
+- Automatic bans (exploit strikes, packet/connect floods) = rolling endpoint ban, plus a
+  permanent SteamID64 ban only when `AutoBan/SteamBan` is on (default `false`). An
+  endpoint needs `AutoBan/Strikes` offences (default 25) spread over
+  `AutoBan/MinDistinctMinutes` different minutes inside the window, and
+  `AutoBan/MaxPerHour` (default 5) caps how many bans a burst can produce.
+- `AutoBan/Enabled=false` turns **every** automatic ban off in one switch: detection,
+  dropping, logging, Discord and the admin chat feed keep working, it just needs a human
+  to act. Set it from the panel (*Mod settings* tab), the console or `POST /config`.
 - Bans persist in `data/BepInEx/config/ModTheIsland.cfg` (`BanList/*`).
 
 Raised guard defaults (all still configurable in the same file):
@@ -205,8 +213,29 @@ Raised guard defaults (all still configurable in the same file):
 | `PacketGuard/MaxPacketsPerSecond` | 1500 | 3000 |
 | `PacketGuard/MaxPacketsPerHourPerEndpoint` | 1.5 M | 4 M |
 | `PacketGuard/MaxBytesPerHourPerEndpoint` | 5 GB | 10 GB |
-| `ExploitGuard/AutoBanThreshold` | 5 (unbounded counter) | 10 (rolling window) |
+| `AutoBan/Strikes` (was `ExploitGuard/AutoBanThreshold`) | 5 (unbounded counter) | 25 (rolling window) |
 | `HostGuard/MaxHostPasswordAttemptsPerMinute` | 5 | 10 |
+
+### Server name, password and race rules survive a restart
+
+The game persists none of the host-controlled server info: the name comes from the
+`NetworkConfiguration` asset, the join password starts empty and the race rules are runtime
+values, so every edit died with the process. `[ServerInfo]` now snapshots name, join
+password, max players and the seven host-panel settings into
+`data/BepInEx/config/ModTheIsland_serverinfo.conf` and writes them back as soon as a server
+instance appears. It watches the live values, so an edit through the in-game host panel, the
+host's own chat commands, the panel or the API is captured the same way.
+
+| Request | Body | Effect |
+| --- | --- | --- |
+| `GET /serverinfo` | – | saved snapshot, live values, file path, the two switches |
+| `POST /serverinfo` | – | store the current live values now |
+| `POST /serverinfo/apply` | – | write the stored snapshot back into the running server |
+
+`POST /settings` and `POST /hostsettings` answer with `"saved":true|false`, so a caller can
+tell whether the change reached disk; the panel's toast says which. `SaveOnChange=false`
+stops the writing, `ReapplyOnStart=false` stops the restore. These entries are not part of
+`/config` on purpose: the file carries the join password.
 
 ```bash
 T="Authorization: Bearer $ADMIN_TOKEN"; U=http://my.host:38080

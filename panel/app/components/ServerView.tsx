@@ -25,6 +25,9 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "console", label: "Console" },
 ];
 
+/** A POST to one endpoint of one server: the mod's JSON answer, or null when it failed. */
+type Post = <T = unknown>(path: string, body?: unknown) => Promise<T | null>;
+
 function uptime(totalSeconds: number): string {
   const seconds = Math.max(0, Math.round(totalSeconds));
   const hours = Math.floor(seconds / 3600);
@@ -51,15 +54,20 @@ export function ServerView({ id, name }: { id: string; name: string }) {
   const status = usePolling<PanelStatus>(`${base}/status`, 4000);
   const players = usePolling<{ players: PanelPlayer[] }>(`${base}/players`, 4000);
 
-  async function post(path: string, body?: unknown): Promise<boolean> {
+  /**
+   * POST to one endpoint of this server. Returns the mod's JSON answer, or null when the
+   * call failed (already toasted). Callers that only care about success test the result for
+   * null; `/settings` and `/hostsettings` read its `saved` flag.
+   */
+  async function post<T = unknown>(path: string, body?: unknown): Promise<T | null> {
     try {
-      await panelFetch(`${base}/${path}`, { method: "POST", body: body ?? {} });
+      const result = await panelFetch<T>(`${base}/${path}`, { method: "POST", body: body ?? {} });
       void status.reload();
       void players.reload();
-      return true;
+      return result;
     } catch (problem) {
       toast(problem instanceof Error ? problem.message : String(problem), "err");
-      return false;
+      return null;
     }
   }
 
@@ -299,7 +307,7 @@ function ServerTab({
 }: {
   id: string;
   status: PanelStatus | null;
-  post: (path: string, body?: unknown) => Promise<boolean>;
+  post: Post;
 }) {
   const [name, setName] = useState(status?.serverName ?? "");
   const [password, setPassword] = useState("");
@@ -346,9 +354,13 @@ function ServerTab({
             event.preventDefault();
             const body: Record<string, unknown> = { name, maxPlayers };
             if (password.length > 0) body.password = password;
-            if (await post("settings", body)) {
+            const result = await post<{ saved?: boolean }>("settings", body);
+            if (result !== null) {
               setPassword("");
-              toast("settings applied", "ok");
+              toast(
+                result.saved === false ? "settings applied, but not saved to disk" : "settings applied and saved",
+                result.saved === false ? "err" : "ok",
+              );
             }
           }}
         >
@@ -397,7 +409,13 @@ function ServerTab({
                 repairingAllowed: form.get("repair") === "on",
                 mapVoteAtEnd: form.get("votemap") === "on",
               };
-              if (await post("hostsettings", body)) toast("race rules applied", "ok");
+              const result = await post<{ saved?: boolean }>("hostsettings", body);
+              if (result !== null) {
+                toast(
+                  result.saved === false ? "race rules applied, but not saved to disk" : "race rules applied and saved",
+                  result.saved === false ? "err" : "ok",
+                );
+              }
             }}
           >
             <label>
@@ -470,7 +488,7 @@ function ServerTab({
   );
 }
 
-function BansTab({ id, post }: { id: string; post: (path: string, body?: unknown) => Promise<boolean> }) {
+function BansTab({ id, post }: { id: string; post: Post }) {
   const bans = usePolling<{ bans: PanelBan[]; windowMinutes: number }>(`/api/s/${id}/bans`, 6000);
   const [scope, setScope] = useState("endpoint");
   const [target, setTarget] = useState("");
@@ -592,7 +610,7 @@ function ConsoleTab({
   post,
   status,
 }: {
-  post: (path: string, body?: unknown) => Promise<boolean>;
+  post: Post;
   status: PanelStatus | null;
 }) {
   const [command, setCommand] = useState("");

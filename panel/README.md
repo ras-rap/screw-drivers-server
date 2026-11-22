@@ -21,7 +21,9 @@ goes through a per-server allowlisted proxy.
     endpoint) · Kick.
   - *Chat* — live feed and a box to talk as the server.
   - *Server* — name, join password, slots; race rules (damage %, acceleration, play mode,
-    rounds, downforce/repair/map-vote); island switch by **name**; ready-up / cancel.
+    rounds, downforce/repair/map-vote); island switch by **name**; ready-up / cancel. The
+    toast reports the mod's `saved` flag, so "applied and saved" means it survives a restart
+    and "applied, but not saved to disk" means it does not.
   - *Bans* — all scopes with state/expiry/strikes, add and remove.
   - *Mod settings* — every ModTheIsland option (Discord webhook, rate limits, guard
     thresholds) with a filter box; saving one writes the server's `.cfg` and reloads that
