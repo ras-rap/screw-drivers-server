@@ -389,6 +389,14 @@ PTERODACTYL_API_KEY=ptla_…            # Application key, permissions:
                                       # "Servers: read" and "Servers: power"
 ```
 
+Create that key for the panel alone: *Admin → Application API → Create Key*, tick
+**Servers: read** and **Servers: power**, nothing else. A key with *Nodes* or *Users*
+reads every account (`root_admin` users, emails) and every node credential on the panel,
+so reusing an admin's own key turns one leaked file into a full panel takeover. Keep it in
+`panel/.env` (mode 600, git-ignored, and not in the image — see `panel/.dockerignore`) and
+rotate it under *Admin → Application API* if it ever shows up in a `docker inspect`,
+`docker compose config` or shell log.
+
 Then in `/admin`:
 
 - **Import from Pterodactyl** lists every server the key can see with its node, state and
