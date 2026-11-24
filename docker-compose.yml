@@ -16,6 +16,8 @@ services:
       # 0 = nobody is host up-front, claim it in-game with host_password.txt
       HOST_STEAM_ID: "${HOST_STEAM_ID:-0}"
       ALLOW_FIRST_PLAYER_HOST: "${ALLOW_FIRST_PLAYER_HOST:-0}"
+      # Island uniqueId the server boots on; 0 = the game's first island
+      DEFAULT_ISLAND: "${DEFAULT_ISLAND:-0}"
       NOBLE_CONNECT: "${NOBLE_CONNECT:-0}"
       EXTRA_ARGS: "${EXTRA_ARGS:-}"
       AUTO_UPDATE: "${AUTO_UPDATE:-0}"

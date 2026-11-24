@@ -23,6 +23,7 @@ services:
       SERVER_NAME: "Screw Drivers #1"
       SERVER_PORT: "38000"
       MAX_PLAYERS: "8"
+      DEFAULT_ISLAND: "${SD_ONE_ISLAND:-0}"
       SD_ADMIN_PORT: "38080"
       SD_ADMIN_TOKEN: "${SD_ONE_TOKEN:-}"
     ports:
@@ -42,6 +43,7 @@ services:
       SERVER_NAME: "Screw Drivers #2"
       SERVER_PORT: "38010"
       MAX_PLAYERS: "8"
+      DEFAULT_ISLAND: "${SD_TWO_ISLAND:-0}"
       SD_ADMIN_PORT: "38081"
       SD_ADMIN_TOKEN: "${SD_TWO_TOKEN:-}"
     ports:

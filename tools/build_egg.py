@@ -200,6 +200,13 @@ EGG = {
             "required|in:0,1",
         ),
         var(
+            "Default Island",
+            "Island uniqueId the server boots on (GET /islands on the admin API lists them). 0 = the game's own first island. A host in game is not needed to change the map: use the panel's World card, which can also make the choice permanent.",
+            "DEFAULT_ISLAND",
+            "0",
+            "required|string|max:24",
+        ),
+        var(
             "Noble Connect",
             "1 = host through the Noble Connect relay instead of direct UDP (use when you cannot forward the port).",
             "NOBLE_CONNECT",

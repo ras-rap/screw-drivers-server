@@ -27,6 +27,10 @@ NOBLE_CONNECT="${NOBLE_CONNECT:-0}"
 EXTRA_ARGS="${EXTRA_ARGS:-}"
 RESTART_ON_EXIT="${RESTART_ON_EXIT:-1}"
 
+# Boot map. DEFAULT_ISLAND is the container-friendly alias for the mod's
+# ServerInfo/DefaultIsland (island uniqueId, 0/empty = the game's own first island).
+: "${SD_DEFAULT_ISLAND:=${DEFAULT_ISLAND:-}}"
+
 # Admin API (BepInEx mod). SD_ADMIN_* is what the plugin reads; ADMIN_* are aliases.
 : "${SD_ADMIN_ENABLED:=${ADMIN_ENABLED:-1}}"
 : "${SD_ADMIN_PORT:=${ADMIN_PORT:-38080}}"
@@ -200,6 +204,7 @@ else
 	log "admin API disabled"
 fi
 export SD_ADMIN_ENABLED SD_ADMIN_PORT SD_ADMIN_BIND SD_ADMIN_TOKEN
+export SD_DEFAULT_ISLAND
 
 # ------------------------------------------------------------------ run loop
 build_args
@@ -210,6 +215,7 @@ log "max players: $MAX_PLAYERS"
 log "password   : $([[ -n "$SERVER_PASSWORD" ]] && echo set || echo none)"
 log "host       : $([[ -n "$HOST_STEAM_ID" && "$HOST_STEAM_ID" != 0 ]] && echo "steamid $HOST_STEAM_ID" || { [[ "$ALLOW_FIRST_PLAYER_HOST" == 1 ]] && echo "first player to join" || echo "claim with host_password.txt in-game"; })"
 log "extra args : ${EXTRA_ARGS:-none}"
+log "boot map   : $([[ -n "$SD_DEFAULT_ISLAND" && "$SD_DEFAULT_ISLAND" != 0 ]] && echo "island $SD_DEFAULT_ISLAND" || echo "the game's first island (set DEFAULT_ISLAND to pin one)")"
 if [[ "$SD_ADMIN_ENABLED" == "1" ]]; then
 	case "$SD_ADMIN_BIND" in
 	0.0.0.0 | 127.0.0.1 | localhost | "::" | "*") ;;

@@ -98,6 +98,7 @@ All variables are read by `start.sh`; see `.env.example`.
 | `SERVER_PORT` | `38000` | Game UDP port, must match the published port |
 | `HOST_STEAM_ID` | `0` | SteamID64 that becomes host automatically |
 | `ALLOW_FIRST_PLAYER_HOST` | `0` | `1` = first player to connect becomes host |
+| `DEFAULT_ISLAND` | `0` | Island uniqueId the server boots on; `0` = the game's own first island (`GET /islands` lists them, or tick *boot here* in the console/panel) |
 | `NOBLE_CONNECT` | `0` | `1` = host through the Noble Connect relay instead of direct UDP |
 | `EXTRA_ARGS` | *(empty)* | Appended verbatim, e.g. `-ip 0.0.0.0` |
 | `ADMIN_ENABLED` | `1` | `0` = run without the admin API plugin |
@@ -112,7 +113,10 @@ Guard, ban and rate-limit knobs live in `data/BepInEx/config/ModTheIsland.cfg` (
 section 5 for the defaults this repo ships), and all of them can be changed live from the
 panel's *Mod settings* tab or `POST /config` - no restart. `AutoBan/Enabled` is the one
 switch that turns every automatic ban off. Server name, join password, slot count and the
-race rules are persisted by the mod itself, so a restart no longer loses them.
+race rules are persisted by the mod itself, so a restart no longer loses them. The island
+is separate: it boots on `DEFAULT_ISLAND` (or the game's first island when that is `0`),
+and `POST /island {"uniqueId":N,"persist":true}` - the World card's *boot here* - makes the
+island you just switched to that default.
 
 Complete server command line (from `ServerCommandLineParser` in `Assembly-CSharp`):
 `-ip`, `-port`, `-password`, `-servername`, `-maxplayers`, `-nobleconnect`,
@@ -121,16 +125,18 @@ Complete server command line (from `ServerCommandLineParser` in `Assembly-CSharp
 ## 4. Join and claim the server
 
 1. `Multiplayer → Direct Connect`, enter `your.host:38000`.
-2. The server starts with **no host**. Inside the game the first player opens
-   *Server Settings* and claims it with the host password. The password is printed on
+2. The server starts with **no host**. Inside the game the first player can open
+   *Server Settings* and claim it with the host password. The password is printed on
    boot (`Generated random host password: …`) and stored as `host_password.txt` next to
    the executable.
 3. Alternatively pin a host up-front with `HOST_STEAM_ID=<your steamid64>`, let the
    first player win the race with `ALLOW_FIRST_PLAYER_HOST=1`, or set it from the admin
    API once a player is connected (`POST /host`).
 
-The host is the only player who can change name/password/map settings – the admin API
-bypasses that, it acts with server authority.
+You do not need a host at all to run the server: the admin API (section 5) sets the map,
+the race rules, the name and the join password without one, and `DEFAULT_ISLAND` decides
+which island every boot starts on. A host is only needed for the in-game host panel and
+for whoever plays as host.
 
 ## 5. Admin API (control without joining)
 
@@ -142,10 +148,10 @@ load its builtin `winhttp` instead of Doorstop's proxy and the plugin would neve
 
 Auth: `Authorization: Bearer <ADMIN_TOKEN>` (or `?token=`). `GET /health` is open for
 Docker/panel health checks. All calls run on Unity's main thread (10 s timeout); errors
-are 400 (bad input / no such player), 409 (server not ready, or no host assigned) and
-503 (main thread busy). Rejected calls never partially apply.
+are 400 (bad input / no such player), 409 (server not ready, or the map is locked by a
+selected challenge) and 503 (main thread busy). Rejected calls never partially apply.
 
-### Host actions – the same things the in-game host can do
+### Host actions – no host has to be in game
 
 | Request | Body | Effect |
 | --- | --- | --- |
@@ -153,8 +159,8 @@ are 400 (bad input / no such player), 409 (server not ready, or no host assigned
 | `GET /players` | – | `[{playerId,name,steamId,endpoint,ping,idleSeconds,isHost,isAdmin,banned}]` |
 | `POST /command` | `{"command":"setpassword hunter2"}` | runs one of the game's own host chat commands as the host: `setservername`, `setpassword`, `sethost`, `addcondition`/`removecondition`/`clearconditions`, `setmap`, `setking`, `sethostadmin` |
 | `POST /gamestate` | `{"state":"waiting"\|"none"\|"running","challengeUniqueId":?,"laps":?}` | ready-up / start / stop a challenge, like the host menu |
-| `GET /islands` | – | island uniqueIds + the current one |
-| `POST /island` | `{"uniqueId":-396930304}` | switch island |
+| `GET /islands` | – | island uniqueIds + names, the current one and the boot default |
+| `POST /island` | `{"uniqueId":-396930304,"persist":true}` | switch island; `persist` also makes it the boot map (`DEFAULT_ISLAND`) |
 | `POST /host` | `{"playerId"\|"steamId"\|"name"}` | make a connected player host |
 | `POST /settings` | `{"name","password","maxPlayers"}` | rename / join password / slots |
 | `POST /hostsettings` | `{"damagePercentage":50,"maxAcceleration":300,"repairingAllowed":false,"downforceAllowed":true,"mapVoteAtEnd":true,"playMode":1,"amountOfRounds":5}` | the race rules the host sets |
@@ -164,10 +170,13 @@ are 400 (bad input / no such player), 409 (server not ready, or no host assigned
 | `POST /kickall` | `{"keepAdmins":true}` | disconnect everyone |
 | `POST /stop` / `POST /restart` | `{"delaySeconds":1}` | quit + stay down / quit + relaunch |
 
-Host-gated actions replay the game's own host message with the current host as the
-sender (that is also why ModTheIsland's "server control" guard lets them through), so
-they need a host: `/host` first, or start the server with `HOST_STEAM_ID` /
-`ALLOW_FIRST_PLAYER_HOST=1`. Without one they answer `409 no host assigned`.
+Host-gated actions replay the game's own host message, and the game only accepts one from
+the current host - which is why they used to answer `409 no host assigned`. The mod
+presents a synthetic host id for the duration of a single call (one call at a time on the
+Unity thread), so `POST /island`, `POST /command`, `POST /gamestate` and `POST
+/hostsettings` work on a server nobody has claimed. The only remaining 409 for those is the
+map: the game ignores an island switch while a challenge is selected, so clear it first
+(`POST /gamestate {"state":"none"}`).
 
 ### Chat – read it and talk in it
 
@@ -276,8 +285,9 @@ http://<host>:38080/          → console; paste the bearer token once (kept in 
   per-row DM · Host · Ban · Kick.
 - Chat: live feed (`player`/`command`/`server`/`admin`) and a box to talk as the server.
 - Server: name/password/max players, race rules (damage %, acceleration, play mode,
-  rounds, downforce/repair/map-vote), island switch, ready-up / cancel, and a host
-  console for `setpassword`, `addcondition`, … .
+  rounds, downforce/repair/map-vote), island switch with *boot here* (makes it the
+  `DEFAULT_ISLAND`), ready-up / cancel, and a host console for `setpassword`,
+  `addcondition`, … .
 - Bans: list with scope/state/expiry/strikes + inline unban, and a form to add
   `steam`/`ip`/`endpoint` bans with a duration.
 

@@ -315,6 +315,7 @@ function ServerTab({
   const [islands, setIslands] = useState<PanelIsland[]>([]);
   const [currentIsland, setCurrentIsland] = useState<number | null>(null);
   const [island, setIsland] = useState<number | null>(null);
+  const [bootIsland, setBootIsland] = useState(false);
 
   useEffect(() => {
     if (status) {
@@ -327,11 +328,14 @@ function ServerTab({
     let alive = true;
     void (async () => {
       try {
-        const data = await panelFetch<{ current: number; islands: PanelIsland[] }>(`/api/s/${id}/islands`);
+        const data = await panelFetch<{ current: number; default?: number; islands: PanelIsland[] }>(
+          `/api/s/${id}/islands`,
+        );
         if (!alive) return;
         setIslands(data.islands);
         setCurrentIsland(data.current);
         setIsland(data.current);
+        setBootIsland(data.default === data.current);
       } catch {
         /* the island list needs a loaded server; quiet failure is fine */
       }
@@ -468,14 +472,18 @@ function ServerTab({
           <button
             onClick={async () => {
               if (island === null) return;
-              if (await post("island", { uniqueId: island })) {
+              if (await post("island", { uniqueId: island, persist: bootIsland })) {
                 setCurrentIsland(island);
-                toast("island switched", "ok");
+                toast(bootIsland ? "island switched, boots here from now on" : "island switched", "ok");
               }
             }}
           >
             Switch island
           </button>
+          <label className="check">
+            <input type="checkbox" checked={bootIsland} onChange={(event) => setBootIsland(event.target.checked)} /> boot
+            here
+          </label>
           <button onClick={() => void post("gamestate", { state: "waiting" }).then((ok) => ok && toast("ready-up started", "ok"))}>
             Ready-up
           </button>
